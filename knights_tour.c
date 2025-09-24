@@ -2,13 +2,85 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define N 6
+#define N 100
 #define M N
+#define HEAP_MAX_SIZE 8
 
 typedef struct {
     int i;
     int j;
 } Coord;
+
+typedef struct {
+    int degree;
+    int move_idx;
+    Coord coord;
+} Move;
+
+typedef struct {
+    Move moves[HEAP_MAX_SIZE];
+    int size;
+} MinHeap;
+
+void init_heap(MinHeap* heap) {
+    heap->size = 0;
+}
+
+void swap_moves(Move* a, Move* b) {
+    Move temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void heapify_up(MinHeap* heap, int index) {
+    while (index > 0) {
+        const int parent = (index - 1) / 2;
+        if (heap->moves[parent].degree > heap->moves[index].degree) {
+            swap_moves(&heap->moves[index], &heap->moves[parent]);
+            index = parent;
+        } else {
+            break;
+        }
+    }
+}
+
+void heapify_down(MinHeap* heap, int index) {
+    while (1) {
+        int smallest = index;
+        const int left = 2 * index + 1;
+        const int right = 2 * index + 2;
+
+        if (left < heap->size && heap->moves[left].degree < heap->moves[smallest].degree) {
+            smallest = left;
+        }
+        if (right < heap->size && heap->moves[right].degree < heap->moves[smallest].degree) {
+            smallest = right;
+        }
+        if (smallest != index) {
+            swap_moves(&heap->moves[index], &heap->moves[smallest]);
+            index = smallest;
+        } else {
+            break;
+        }
+    }
+}
+
+void heap_insert(MinHeap* heap, Move move) {
+    if (heap->size == HEAP_MAX_SIZE) return;
+    heap->moves[heap->size] = move;
+    heapify_up(heap, heap->size++);
+}
+
+Move heap_extract_min(MinHeap* heap) {
+    Move minMove = heap->moves[0];
+    heap->moves[0] = heap->moves[--heap->size];
+    heapify_down(heap, 0);
+    return minMove;
+}
+
+int heap_is_empty(MinHeap* heap) {
+    return heap->size == 0;
+}
 
 Coord coord_add(Coord a, Coord b) {
     return (Coord){a.i + b.i, a.j + b.j};
@@ -111,24 +183,26 @@ void solve_recursive(int board[N][M], int visited[N][M], Path* path, Coord c, in
         return; // Tour complete
     }
 
-    Coord next;
-    int minDegreeMoveIdx = -1, minDegree = max_degree + 1;
+    Coord next, adj;
+    MinHeap heap;
+    init_heap(&heap);
 
     for (int k = 0; k < 8; ++k) {
         next = coord_add(c, KNIGHT_MOVES[k]);
         if (is_valid_position(next) && !visited[next.i][next.j]) {
-            const int degree = board[next.i][next.j];
-            if (degree < minDegree) {
-                minDegreeMoveIdx = k;
-                minDegree = degree;
-            }
+            Move move = {
+                .degree = board[next.i][next.j],
+                .move_idx = k,
+                .coord = next
+            };
+            heap_insert(&heap, move);
         }
     }
 
-    if (minDegreeMoveIdx != -1) {
-        next = coord_add(c, KNIGHT_MOVES[minDegreeMoveIdx]);
+    while (!heap_is_empty(&heap) && path->length < N * M) {
+        Move move = heap_extract_min(&heap);
+        next = move.coord;
 
-        Coord adj;
         for (int k = 0; k < 8; ++k) {
             adj = coord_add(next, KNIGHT_MOVES[k]);
             if (is_valid_position(adj) && !visited[adj.i][adj.j]) {
@@ -137,18 +211,31 @@ void solve_recursive(int board[N][M], int visited[N][M], Path* path, Coord c, in
         }
 
         solve_recursive(board, visited, path, next, max_degree);
-    }
 
-    // Backtrack
-    if (path->length < N * M) {
-        path_pop(path);
-        visited[next.i][next.j] = 0;
+        if (path->length == N * M) {
+            break; // Tour complete
+        }
 
-        Coord adj;
+        // Backtrack
         for (int k = 0; k < 8; ++k) {
-            adj = coord_add(c, KNIGHT_MOVES[k]);
+            adj = coord_add(next, KNIGHT_MOVES[k]);
             if (is_valid_position(adj) && !visited[adj.i][adj.j]) {
                 ++board[adj.i][adj.j];
+            }
+        }
+
+        path_pop(path);
+        visited[next.i][next.j] = 0;
+    }
+
+    // Final backtrack for my current position
+    if (path->length < N * M) {
+        path_pop(path);
+        visited[c.i][c.j] = 0;
+        for (int k = 0; k < 8; ++k) {
+            next = coord_add(c, KNIGHT_MOVES[k]);
+            if (is_valid_position(next) && !visited[next.i][next.j]) {
+                ++board[next.i][next.j];
             }
         }
     }
