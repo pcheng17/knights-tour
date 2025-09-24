@@ -2,24 +2,49 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define N 150
+#define N 6
 
-int KNIGHT_MOVES[8][2] = {
+typedef struct {
+    int i;
+    int j;
+} Coord;
+
+Coord coord_add(Coord a, Coord b) {
+    return (Coord){a.i + b.i, a.j + b.j};
+}
+
+typedef struct {
+    Coord coords[N * N];
+    int length;
+} Path;
+
+void path_push(Path* path, Coord pos) {
+    if (path->length < N * N) {
+        path->coords[path->length++] = pos;
+    }
+}
+
+void path_pop(Path* path) {
+    if (path->length > 0) {
+        --path->length;
+    }
+}
+
+Coord KNIGHT_MOVES[8] = {
     {2, 1}, {2, -1}, {-2, 1}, {-2, -1},
     {1, 2}, {1, -2}, {-1, 2}, {-1, -2}
 };
 
-int is_valid_position(int i, int j) {
-    return (i >= 0 && i < N && j >= 0 && j < N);
+int is_valid_position(Coord c) {
+    return (c.i >= 0 && c.i < N && c.j >= 0 && c.j < N);
 }
 
-int calculate_degree(int i, int j) {
+int calculate_degree(Coord c) {
     int d = 0;
+    Coord next;
     for (int k = 0; k < 8; ++k) {
-        int iNext = i + KNIGHT_MOVES[k][0];
-        int jNext = j + KNIGHT_MOVES[k][1];
-
-        if (is_valid_position(iNext, jNext)) {
+        next = coord_add(c, KNIGHT_MOVES[k]);
+        if (is_valid_position(next)) {
             ++d;
         }
     }
@@ -29,7 +54,7 @@ int calculate_degree(int i, int j) {
 void fill_board_with_degrees(int board[N][N]) {
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            board[i][j] = calculate_degree(i, j);
+            board[i][j] = calculate_degree((Coord){i, j});
         }
     }
 }
@@ -64,14 +89,28 @@ int get_max_degree(int board[N][N]) {
     return maxDegree;
 }
 
+void write_path_to_file(const char* filename, Path* path) {
+    FILE* file = fopen(filename, "w");
+    if (file == NULL) {
+        fprintf(stderr, "Error: Could not open file for writing\n");
+        return;
+    }
+    fprintf(file, "%d,%d\n", N, N); // First line is the size of the board.
+    for (int i = 0; i < path->length; ++i) {
+        fprintf(file, "%d,%d\n", path->coords[i].i, path->coords[i].j);
+    }
+    fclose(file);
+}
+
 int main(int argc, char* argv[]) {
 
-    int iStart = 0, jStart = 0; // Default starting position
+    Coord start = {0, 0};
+
     if (argc == 3) {
-        iStart = atoi(argv[1]);
-        jStart = atoi(argv[2]);
-        if (!is_valid_position(iStart, jStart)) {
-            fprintf(stderr, "Error: Invalid starting position (%d, %d)\n", iStart, jStart);
+        start.i = atoi(argv[1]);
+        start.j = atoi(argv[2]);
+        if (!is_valid_position(start)) {
+            fprintf(stderr, "Error: Invalid starting position (%d, %d)\n", start.i, start.j);
             return 1;
         }
     }
@@ -79,33 +118,29 @@ int main(int argc, char* argv[]) {
     int board[N][N];
     int visited[N][N];
 
-    FILE* file = fopen("knights_tour.txt", "w");
-    if (file == NULL) {
-        fprintf(stderr, "Error: Could not open file for writing\n");
-        return 1;
-    }
-
-    fprintf(file, "%d,%d\n", N, N); // First line is the size of the board.
+    Path path = {.length = 0};
 
     initialize_visited(visited);
     fill_board_with_degrees(board);
     const int max_deg = get_max_degree(board);
 
-    int i = iStart, j = jStart;
-    visited[i][j] = 1;
+    Coord c = start;
+    Coord next;
+    visited[c.i][c.j] = 1;
     int moves = 1;
 
-    clock_t start = clock();
+    clock_t t_start = clock();
 
     while (1) {
-        fprintf(file, "%d,%d\n", i, j);
-        int minDegreeMoveIdx = -1, minDegree = max_deg + 1;
-        for (int k = 0; k < 8; ++k) {
-            int iNext = i + KNIGHT_MOVES[k][0];
-            int jNext = j + KNIGHT_MOVES[k][1];
+        path_push(&path, c);
 
-            if (is_valid_position(iNext, jNext) && !visited[iNext][jNext]) {
-                int degree = board[iNext][jNext];
+        int minDegreeMoveIdx = -1, minDegree = max_deg + 1;
+
+        for (int k = 0; k < 8; ++k) {
+            next = coord_add(c, KNIGHT_MOVES[k]);
+
+            if (is_valid_position(next) && !visited[next.i][next.j]) {
+                const int degree = board[next.i][next.j];
                 if (degree < minDegree) {
                     minDegreeMoveIdx = k;
                     minDegree = degree;
@@ -117,23 +152,22 @@ int main(int argc, char* argv[]) {
             break; // No more moves possible
         }
 
-        i += KNIGHT_MOVES[minDegreeMoveIdx][0];
-        j += KNIGHT_MOVES[minDegreeMoveIdx][1];
-        visited[i][j] = 1;
+        c.i += KNIGHT_MOVES[minDegreeMoveIdx].i;
+        c.j += KNIGHT_MOVES[minDegreeMoveIdx].j;
+        visited[c.i][c.j] = 1;
         ++moves;
 
         // Everything reachable from this new position needs to have its degree reduced by 1
         for (int k = 0; k < 8; ++k) {
-            int iNext = i + KNIGHT_MOVES[k][0];
-            int jNext = j + KNIGHT_MOVES[k][1];
-            if (is_valid_position(iNext, jNext) && !visited[iNext][jNext]) {
-                --board[iNext][jNext];
+            next = coord_add(c, KNIGHT_MOVES[k]);
+            if (is_valid_position(next) && !visited[next.i][next.j]) {
+                --board[next.i][next.j];
             }
         }
     }
 
-    clock_t end = clock();
-    double time_spent = (double)(end - start) / CLOCKS_PER_SEC;
+    clock_t t_end = clock();
+    double time_spent = (double)(t_end - t_start) / CLOCKS_PER_SEC;
 
     if (moves == N * N) {
         printf("Success! The knight's tour is complete.\n");
@@ -144,7 +178,7 @@ int main(int argc, char* argv[]) {
 
     printf("Time taken: %f seconds\n", time_spent);
 
-    fclose(file);
+    write_path_to_file("knights_tour.txt", &path);
     printf("Knight's tour path written to knights_tour.txt\n");
 
     return 0;
