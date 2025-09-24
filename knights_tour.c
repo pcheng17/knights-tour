@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define N 6
+#define N 150
 #define M N
 
 typedef struct {
@@ -103,6 +103,57 @@ void write_tour_to_file(const char* filename, Path* path) {
     fclose(file);
 }
 
+void solve_recursive(int board[N][M], int visited[N][M], Path* path, Coord c, int max_degree) {
+    path_push(path, c);
+    visited[c.i][c.j] = 1;
+
+    if (path->length == N * M) {
+        return; // Tour complete
+    }
+
+    Coord next;
+    int minDegreeMoveIdx = -1, minDegree = max_degree + 1;
+
+    for (int k = 0; k < 8; ++k) {
+        next = coord_add(c, KNIGHT_MOVES[k]);
+        if (is_valid_position(next) && !visited[next.i][next.j]) {
+            const int degree = board[next.i][next.j];
+            if (degree < minDegree) {
+                minDegreeMoveIdx = k;
+                minDegree = degree;
+            }
+        }
+    }
+
+    if (minDegreeMoveIdx != -1) {
+        next = coord_add(c, KNIGHT_MOVES[minDegreeMoveIdx]);
+
+        Coord adj;
+        for (int k = 0; k < 8; ++k) {
+            adj = coord_add(next, KNIGHT_MOVES[k]);
+            if (is_valid_position(adj) && !visited[adj.i][adj.j]) {
+                --board[adj.i][adj.j];
+            }
+        }
+
+        solve_recursive(board, visited, path, next, max_degree);
+    }
+
+    // Backtrack
+    if (path->length < N * M) {
+        path_pop(path);
+        visited[next.i][next.j] = 0;
+
+        Coord adj;
+        for (int k = 0; k < 8; ++k) {
+            adj = coord_add(c, KNIGHT_MOVES[k]);
+            if (is_valid_position(adj) && !visited[adj.i][adj.j]) {
+                ++board[adj.i][adj.j];
+            }
+        }
+    }
+}
+
 int main(int argc, char* argv[]) {
 
     Coord start = {0, 0};
@@ -126,54 +177,18 @@ int main(int argc, char* argv[]) {
     const int max_deg = get_max_degree(board);
 
     Coord c = start;
-    Coord next;
-    visited[c.i][c.j] = 1;
-    int moves = 1;
 
     clock_t t_start = clock();
 
-    while (1) {
-        path_push(&path, c);
-
-        int minDegreeMoveIdx = -1, minDegree = max_deg + 1;
-
-        for (int k = 0; k < 8; ++k) {
-            next = coord_add(c, KNIGHT_MOVES[k]);
-
-            if (is_valid_position(next) && !visited[next.i][next.j]) {
-                const int degree = board[next.i][next.j];
-                if (degree < minDegree) {
-                    minDegreeMoveIdx = k;
-                    minDegree = degree;
-                }
-            }
-        }
-
-        if (minDegreeMoveIdx == -1) {
-            break; // No more moves possible
-        }
-
-        c.i += KNIGHT_MOVES[minDegreeMoveIdx].i;
-        c.j += KNIGHT_MOVES[minDegreeMoveIdx].j;
-        visited[c.i][c.j] = 1;
-        ++moves;
-
-        // Everything reachable from this new position needs to have its degree reduced by 1
-        for (int k = 0; k < 8; ++k) {
-            next = coord_add(c, KNIGHT_MOVES[k]);
-            if (is_valid_position(next) && !visited[next.i][next.j]) {
-                --board[next.i][next.j];
-            }
-        }
-    }
+    solve_recursive(board, visited, &path, c, max_deg);
 
     clock_t t_end = clock();
     double time_spent = (double)(t_end - t_start) / CLOCKS_PER_SEC;
 
-    if (moves == N * N) {
+    if (path.length == N * M) {
         printf("Success! The knight's tour is complete.\n");
     } else {
-        printf("The knight's tour ended prematurely after %d moves.\n", moves);
+        printf("The knight's tour ended prematurely after %d moves.\n", path.length);
         printf("The knight could not visit all %d squares.\n", N * M);
     }
 
