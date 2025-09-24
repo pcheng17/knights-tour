@@ -1,5 +1,3 @@
-# Makefile for Knight's Tour
-
 # Compiler selection - tries clang first, falls back to gcc
 CC := $(shell which clang 2>/dev/null || which gcc)
 

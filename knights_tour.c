@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define N 150
+#define N 6
 #define M N
 
 typedef struct {
