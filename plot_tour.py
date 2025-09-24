@@ -30,5 +30,5 @@ if __name__ == "__main__":
     start_pos = positions[0]
     idx = start_pos[0] * m + start_pos[1]
     image = draw_tour(positions, n, m)
-    image.save(f"knights_tour_{n}_{m}.png")
-    print(f"Image saved as knights_tour_{n}_{m}.png")
+    image.save(f"knights_tour.pdf")
+    print(f"Image saved as knights_tour.pdf")
