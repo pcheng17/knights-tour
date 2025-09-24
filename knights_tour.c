@@ -3,6 +3,7 @@
 #include <time.h>
 
 #define N 6
+#define M N
 
 typedef struct {
     int i;
@@ -14,12 +15,12 @@ Coord coord_add(Coord a, Coord b) {
 }
 
 typedef struct {
-    Coord coords[N * N];
+    Coord coords[N * M];
     int length;
 } Path;
 
 void path_push(Path* path, Coord pos) {
-    if (path->length < N * N) {
+    if (path->length < N * M) {
         path->coords[path->length++] = pos;
     }
 }
@@ -36,7 +37,7 @@ Coord KNIGHT_MOVES[8] = {
 };
 
 int is_valid_position(Coord c) {
-    return (c.i >= 0 && c.i < N && c.j >= 0 && c.j < N);
+    return (c.i >= 0 && c.i < N && c.j >= 0 && c.j < M);
 }
 
 int calculate_degree(Coord c) {
@@ -51,36 +52,36 @@ int calculate_degree(Coord c) {
     return d;
 }
 
-void fill_board_with_degrees(int board[N][N]) {
+void fill_board_with_degrees(int board[N][M]) {
     for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
+        for (int j = 0; j < M; ++j) {
             board[i][j] = calculate_degree((Coord){i, j});
         }
     }
 }
 
-void print_board(int board[N][N]) {
-    printf("Board of degrees (%dx%d):\n", N, N);
+void print_board(int board[N][M]) {
+    printf("Board of degrees (%dx%d):\n", N, M);
     for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
+        for (int j = 0; j < M; ++j) {
             printf("%d ", board[i][j]);
         }
         printf("\n");
     }
 }
 
-void initialize_visited(int visited[N][N]) {
+void initialize_visited(int visited[N][M]) {
     for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
+        for (int j = 0; j < M; ++j) {
             visited[i][j] = 0;
         }
     }
 }
 
-int get_max_degree(int board[N][N]) {
+int get_max_degree(int board[N][M]) {
     int maxDegree = -1;
     for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
+        for (int j = 0; j < M; ++j) {
             if (board[i][j] > maxDegree) {
                 maxDegree = board[i][j];
             }
@@ -89,7 +90,7 @@ int get_max_degree(int board[N][N]) {
     return maxDegree;
 }
 
-void write_path_to_file(const char* filename, Path* path) {
+void write_tour_to_file(const char* filename, Path* path) {
     FILE* file = fopen(filename, "w");
     if (file == NULL) {
         fprintf(stderr, "Error: Could not open file for writing\n");
@@ -115,8 +116,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    int board[N][N];
-    int visited[N][N];
+    int board[N][M];
+    int visited[N][M];
 
     Path path = {.length = 0};
 
@@ -173,12 +174,12 @@ int main(int argc, char* argv[]) {
         printf("Success! The knight's tour is complete.\n");
     } else {
         printf("The knight's tour ended prematurely after %d moves.\n", moves);
-        printf("The knight could not visit all %d squares.\n", N * N);
+        printf("The knight could not visit all %d squares.\n", N * M);
     }
 
     printf("Time taken: %f seconds\n", time_spent);
 
-    write_path_to_file("knights_tour.txt", &path);
+    write_tour_to_file("knights_tour.txt", &path);
     printf("Knight's tour path written to knights_tour.txt\n");
 
     return 0;
