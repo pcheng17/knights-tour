@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define N 100
+#define N 50
 #define M N
 #define HEAP_MAX_SIZE 8
 
@@ -124,42 +124,27 @@ int calculate_degree(Coord c) {
     return d;
 }
 
-void fill_board_with_degrees(int board[N][M]) {
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < M; ++j) {
-            board[i][j] = calculate_degree((Coord){i, j});
-        }
-    }
+int coord_flatten(Coord c) {
+    return c.i * M + c.j;
 }
 
-void print_board(int board[N][M]) {
-    printf("Board of degrees (%dx%d):\n", N, M);
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < M; ++j) {
-            printf("%d ", board[i][j]);
+int* initialize_board() {
+    int* board = (int*)malloc(N * M * sizeof(int));
+    Coord c;
+    for (c.i = 0; c.i < N; ++c.i) {
+        for (c.j = 0; c.j < M; ++c.j) {
+            board[coord_flatten(c)] = calculate_degree(c);
         }
-        printf("\n");
     }
+    return board;
 }
 
-void initialize_visited(int visited[N][M]) {
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < M; ++j) {
-            visited[i][j] = 0;
-        }
+int* initialize_visited() {
+    int* visited = (int*)malloc(N * M * sizeof(int));
+    for (int i = 0; i < N * M; ++i) {
+        visited[i] = 0;
     }
-}
-
-int get_max_degree(int board[N][M]) {
-    int maxDegree = -1;
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < M; ++j) {
-            if (board[i][j] > maxDegree) {
-                maxDegree = board[i][j];
-            }
-        }
-    }
-    return maxDegree;
+    return visited;
 }
 
 void write_tour_to_file(const char* filename, Path* path) {
@@ -175,9 +160,9 @@ void write_tour_to_file(const char* filename, Path* path) {
     fclose(file);
 }
 
-void solve_recursive(int board[N][M], int visited[N][M], Path* path, Coord c, int max_degree) {
+void solve_recursive(int* board, int* visited, Path* path, Coord c) {
     path_push(path, c);
-    visited[c.i][c.j] = 1;
+    visited[coord_flatten(c)] = 1;
 
     if (path->length == N * M) {
         return; // Tour complete
@@ -189,9 +174,9 @@ void solve_recursive(int board[N][M], int visited[N][M], Path* path, Coord c, in
 
     for (int k = 0; k < 8; ++k) {
         next = coord_add(c, KNIGHT_MOVES[k]);
-        if (is_valid_position(next) && !visited[next.i][next.j]) {
+        if (is_valid_position(next) && !visited[coord_flatten(next)]) {
             Move move = {
-                .degree = board[next.i][next.j],
+                .degree = board[coord_flatten(next)],
                 .move_idx = k,
                 .coord = next
             };
@@ -205,12 +190,12 @@ void solve_recursive(int board[N][M], int visited[N][M], Path* path, Coord c, in
 
         for (int k = 0; k < 8; ++k) {
             adj = coord_add(next, KNIGHT_MOVES[k]);
-            if (is_valid_position(adj) && !visited[adj.i][adj.j]) {
-                --board[adj.i][adj.j];
+            if (is_valid_position(adj) && !visited[coord_flatten(adj)]) {
+                --board[coord_flatten(adj)];
             }
         }
 
-        solve_recursive(board, visited, path, next, max_degree);
+        solve_recursive(board, visited, path, next);
 
         if (path->length == N * M) {
             break; // Tour complete
@@ -219,23 +204,23 @@ void solve_recursive(int board[N][M], int visited[N][M], Path* path, Coord c, in
         // Backtrack
         for (int k = 0; k < 8; ++k) {
             adj = coord_add(next, KNIGHT_MOVES[k]);
-            if (is_valid_position(adj) && !visited[adj.i][adj.j]) {
-                ++board[adj.i][adj.j];
+            if (is_valid_position(adj) && !visited[coord_flatten(adj)]) {
+                ++board[coord_flatten(adj)];
             }
         }
 
         path_pop(path);
-        visited[next.i][next.j] = 0;
+        visited[coord_flatten(next)] = 0;
     }
 
     // Final backtrack for my current position
     if (path->length < N * M) {
         path_pop(path);
-        visited[c.i][c.j] = 0;
+        visited[coord_flatten(c)] = 0;
         for (int k = 0; k < 8; ++k) {
             next = coord_add(c, KNIGHT_MOVES[k]);
-            if (is_valid_position(next) && !visited[next.i][next.j]) {
-                ++board[next.i][next.j];
+            if (is_valid_position(next) && !visited[coord_flatten(next)]) {
+                ++board[coord_flatten(next)];
             }
         }
     }
@@ -254,20 +239,14 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    int board[N][M];
-    int visited[N][M];
-
+    int* board = initialize_board();
+    int* visited = initialize_visited();
     Path path = {.length = 0};
-
-    initialize_visited(visited);
-    fill_board_with_degrees(board);
-    const int max_deg = get_max_degree(board);
-
     Coord c = start;
 
     clock_t t_start = clock();
 
-    solve_recursive(board, visited, &path, c, max_deg);
+    solve_recursive(board, visited, &path, c);
 
     clock_t t_end = clock();
     double time_spent = (double)(t_end - t_start) / CLOCKS_PER_SEC;
@@ -283,6 +262,9 @@ int main(int argc, char* argv[]) {
 
     write_tour_to_file("knights_tour.txt", &path);
     printf("Knight's tour path written to knights_tour.txt\n");
+
+    free(board);
+    free(visited);
 
     return 0;
 }
