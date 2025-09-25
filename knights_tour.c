@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define N 50
+#define N 10
 #define M N
 #define HEAP_MAX_SIZE 8
 
@@ -10,6 +10,45 @@ typedef struct {
     int i;
     int j;
 } Coord;
+
+typedef struct {
+    Coord pos;
+    int move_index;
+} StackFrame;
+
+typedef struct {
+    StackFrame* frames;
+    int top;
+} Stack;
+
+void initialize_stack(Stack* stack) {
+    stack->frames = (StackFrame*)malloc(N * M * sizeof(StackFrame));
+    stack->top = -1;
+}
+
+void free_stack(Stack* stack) {
+    free(stack->frames);
+}
+
+void stack_push(Stack* stack, Coord pos, int move_index) {
+    if (stack->top < N * M - 1) {
+        stack->frames[++stack->top] = (StackFrame){pos, move_index};
+    }
+}
+
+StackFrame* stack_top(Stack* stack) {
+    return stack->top >= 0 ? &stack->frames[stack->top] : NULL;
+}
+
+void stack_pop(Stack* stack) {
+    if (stack->top >= 0) {
+        stack->top--;
+    }
+}
+
+int stack_is_empty(Stack* stack) {
+    return stack->top < 0;
+}
 
 typedef struct {
     int degree;
@@ -87,9 +126,18 @@ Coord coord_add(Coord a, Coord b) {
 }
 
 typedef struct {
-    Coord coords[N * M];
+    Coord* coords;
     int length;
 } Path;
+
+void initialize_path(Path* path) {
+    path->coords = (Coord*)malloc(N * M * sizeof(Coord));
+    path->length = 0;
+}
+
+void free_path(Path* path) {
+    free(path->coords);
+}
 
 void path_push(Path* path, Coord pos) {
     if (path->length < N * M) {
@@ -158,6 +206,80 @@ void write_tour_to_file(const char* filename, Path* path) {
         fprintf(file, "%d,%d\n", path->coords[i].i, path->coords[i].j);
     }
     fclose(file);
+}
+
+int solve_iterative(int* board, int* visited, Path* path, Coord start) {
+    Stack stack;
+    initialize_stack(&stack);
+
+    path_push(path, start);
+    visited[coord_flatten(start)] = 1;
+
+    for (int k = 0; k < 8; ++k) {
+        Coord adj = coord_add(start, KNIGHT_MOVES[k]);
+        if (is_valid_position(adj) && !visited[coord_flatten(adj)]) {
+            --board[coord_flatten(adj)];
+        }
+    }
+
+    stack_push(&stack, start, -1);
+
+    while (!stack_is_empty(&stack) && path->length < N * M) {
+        StackFrame* frame = stack_top(&stack);
+        const Coord current = frame->pos;
+
+        MinHeap heap;
+        init_heap(&heap);
+
+        for (int k = 0; k < 8; ++k) {
+            const Coord next = coord_add(current, KNIGHT_MOVES[k]);
+            if (is_valid_position(next) && !visited[coord_flatten(next)]) {
+                const Move move = {
+                    .degree = board[coord_flatten(next)],
+                    .move_idx = k,
+                    .coord = next
+                };
+                heap_insert(&heap, move);
+            }
+        }
+
+        int found_move = 0;
+
+        while (!heap_is_empty(&heap) && !found_move) {
+            const Move move = heap_extract_min(&heap);
+            const Coord next = move.coord;
+
+            if (!visited[coord_flatten(next)]) {
+                path_push(path, next);
+                stack_push(&stack, next, move.move_idx);
+                visited[coord_flatten(next)] = 1;
+                for (int k = 0; k < 8; ++k) {
+                    Coord adj = coord_add(next, KNIGHT_MOVES[k]);
+                    if (is_valid_position(adj) && !visited[coord_flatten(adj)]) {
+                        --board[coord_flatten(adj)];
+                    }
+                }
+                found_move = 1;
+            }
+        }
+
+        if (!found_move) {
+            if (path->length > 1) {
+                path_pop(path);
+                visited[coord_flatten(current)] = 0;
+                for (int k = 0; k < 8; ++k) {
+                    Coord adj = coord_add(current, KNIGHT_MOVES[k]);
+                    if (is_valid_position(adj) && !visited[coord_flatten(adj)]) {
+                        ++board[coord_flatten(adj)];
+                    }
+                }
+            }
+            stack_pop(&stack);
+        }
+    }
+
+    free_stack(&stack);
+    return path->length == N * M;
 }
 
 void solve_recursive(int* board, int* visited, Path* path, Coord c) {
@@ -239,14 +361,17 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    int* board = initialize_board();
-    int* visited = initialize_visited();
-    Path path = {.length = 0};
+    int* board = initialize_board(); // Need to free
+    int* visited = initialize_visited(); // Need to free
+
+    Path path;
+    initialize_path(&path); // Need to free
+
     Coord c = start;
 
     clock_t t_start = clock();
 
-    solve_recursive(board, visited, &path, c);
+    solve_iterative(board, visited, &path, c);
 
     clock_t t_end = clock();
     double time_spent = (double)(t_end - t_start) / CLOCKS_PER_SEC;
@@ -265,6 +390,7 @@ int main(int argc, char* argv[]) {
 
     free(board);
     free(visited);
+    free_path(&path);
 
     return 0;
 }
