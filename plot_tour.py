@@ -35,12 +35,20 @@ if __name__ == "__main__":
 
     if len(positions) != n * m:
         raise ValueError("The path length does not match the board size.")
+
     visited = set(positions)
     if len(visited) != n * m:
         raise ValueError("The path does not visit every cell exactly once.")
+
     for (x, y) in positions:
         if not (0 <= x < n and 0 <= y < m):
             raise ValueError(f"Position {(x, y)} is out of bounds.")
+
+    for i in range(len(positions) - 1):
+        x1, y1 = positions[i]
+        x2, y2 = positions[i + 1]
+        if not ((abs(x1 - x2) == 2 and abs(y1 - y2) == 1) or (abs(x1 - x2) == 1 and abs(y1 - y2) == 2)):
+            raise ValueError(f"Invalid knight move from {(x1, y1)} to {(x2, y2)}.")
 
     print("All checks passed!")
 

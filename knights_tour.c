@@ -5,28 +5,6 @@
 #define N 1000
 #define M N
 
-#define UPDATE_ADJACENT_DEGREES(pos, delta)                                                        \
-    do {                                                                                           \
-        const int base_i = (pos).i;                                                                \
-        const int base_j = (pos).j;                                                                \
-        if (base_i + 2 < N && base_j + 1 < M && !visited[(base_i + 2) * M + base_j + 1])           \
-            board[(base_i + 2) * M + base_j + 1] += (delta);                                       \
-        if (base_i + 2 < N && base_j - 1 >= 0 && !visited[(base_i + 2) * M + base_j - 1])          \
-            board[(base_i + 2) * M + base_j - 1] += (delta);                                       \
-        if (base_i - 2 >= 0 && base_j + 1 < M && !visited[(base_i - 2) * M + base_j + 1])          \
-            board[(base_i - 2) * M + base_j + 1] += (delta);                                       \
-        if (base_i - 2 >= 0 && base_j - 1 >= 0 && !visited[(base_i - 2) * M + base_j - 1])         \
-            board[(base_i - 2) * M + base_j - 1] += (delta);                                       \
-        if (base_i + 1 < N && base_j + 2 < M && !visited[(base_i + 1) * M + base_j + 2])           \
-            board[(base_i + 1) * M + base_j + 2] += (delta);                                       \
-        if (base_i + 1 < N && base_j - 2 >= 0 && !visited[(base_i + 1) * M + base_j - 2])          \
-            board[(base_i + 1) * M + base_j - 2] += (delta);                                       \
-        if (base_i - 1 >= 0 && base_j + 2 < M && !visited[(base_i - 1) * M + base_j + 2])          \
-            board[(base_i - 1) * M + base_j + 2] += (delta);                                       \
-        if (base_i - 1 >= 0 && base_j - 2 >= 0 && !visited[(base_i - 1) * M + base_j - 2])         \
-            board[(base_i - 1) * M + base_j - 2] += (delta);                                       \
-    } while (0)
-
 typedef struct {
     int i;
     int j;
@@ -206,7 +184,15 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
     path_push(path, start);
     visited[coord_flatten(start)] = 1;
 
-    UPDATE_ADJACENT_DEGREES(start, -1);
+    for (int k = 0; k < 8; ++k) {
+        const Coord adj = coord_add(start, KNIGHT_MOVES[k]);
+        if (is_valid_position(adj)) {
+            const int idx = coord_flatten(adj);
+            if (!visited[idx]) {
+                board[idx]--;
+            }
+        }
+    }
 
     stack_push(&stack, start, -1);
 
@@ -243,7 +229,15 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
                 path_push(path, next);
                 stack_push(&stack, next, move.move_idx);
                 visited[next_idx] = 1;
-                UPDATE_ADJACENT_DEGREES(next, -1);
+                for (int k = 0; k < 8; ++k) {
+                    const Coord adj = coord_add(next, KNIGHT_MOVES[k]);
+                    if (is_valid_position(adj)) {
+                        const int idx = coord_flatten(adj);
+                        if (!visited[idx]) {
+                            board[idx]--;
+                        }
+                    }
+                }
                 found_move = 1;
             }
         }
@@ -252,7 +246,15 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
             if (path->length > 1) {
                 path_pop(path);
                 visited[coord_flatten(current)] = 0;
-                UPDATE_ADJACENT_DEGREES(current, 1);
+                for (int k = 0; k < 8; ++k) {
+                    const Coord adj = coord_add(current, KNIGHT_MOVES[k]);
+                    if (is_valid_position(adj)) {
+                        const int idx = coord_flatten(adj);
+                        if (!visited[idx]) {
+                            board[idx]++;
+                        }
+                    }
+                }
             }
             stack_pop(&stack);
         }
