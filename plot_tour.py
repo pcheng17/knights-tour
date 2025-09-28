@@ -1,3 +1,4 @@
+import argparse
 from PIL import Image, ImageDraw
 
 def draw_tour(positions, n, m):
@@ -22,6 +23,11 @@ def draw_tour(positions, n, m):
     return image
 
 if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("--file", type=str, default="knights_tour.txt", help="Path to the file containing the knight's tour.")
+    arg_parser.add_argument("--output", type=str, help="Output image file name.")
+    args = arg_parser.parse_args()
+
     with open("knights_tour.txt") as f:
         lines = f.readlines()
         n, m = map(int, lines[0].split(","))
@@ -36,8 +42,11 @@ if __name__ == "__main__":
         if not (0 <= x < n and 0 <= y < m):
             raise ValueError(f"Position {(x, y)} is out of bounds.")
 
-    # start_pos = positions[0]
-    # idx = start_pos[0] * m + start_pos[1]
-    # image = draw_tour(positions, n, m)
-    # image.save(f"knights_tour.png")
-    # print(f"Image saved as knights_tour.png")
+    print("All checks passed!")
+
+    if args.output:
+        start_pos = positions[0]
+        idx = start_pos[0] * m + start_pos[1]
+        image = draw_tour(positions, n, m)
+        image.save(args.output)
+        print(f"Image saved as {args.output}")
