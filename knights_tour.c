@@ -4,7 +4,6 @@
 
 #define N 1000
 #define M N
-#define HEAP_MAX_SIZE 8
 
 #define UPDATE_ADJACENT_DEGREES(pos, delta)                                                        \
     do {                                                                                           \
@@ -82,71 +81,6 @@ typedef struct {
     int move_idx;
     Coord coord;
 } Move;
-
-typedef struct {
-    Move moves[HEAP_MAX_SIZE];
-    int size;
-} MinHeap;
-
-void init_heap(MinHeap* heap) {
-    heap->size = 0;
-}
-
-void swap_moves(Move* a, Move* b) {
-    Move temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
-void heapify_up(MinHeap* heap, int index) {
-    while (index > 0) {
-        const int parent = (index - 1) / 2;
-        if (heap->moves[parent].degree > heap->moves[index].degree) {
-            swap_moves(&heap->moves[index], &heap->moves[parent]);
-            index = parent;
-        } else {
-            break;
-        }
-    }
-}
-
-void heapify_down(MinHeap* heap, int index) {
-    while (1) {
-        int smallest = index;
-        const int left = 2 * index + 1;
-        const int right = 2 * index + 2;
-
-        if (left < heap->size && heap->moves[left].degree < heap->moves[smallest].degree) {
-            smallest = left;
-        }
-        if (right < heap->size && heap->moves[right].degree < heap->moves[smallest].degree) {
-            smallest = right;
-        }
-        if (smallest != index) {
-            swap_moves(&heap->moves[index], &heap->moves[smallest]);
-            index = smallest;
-        } else {
-            break;
-        }
-    }
-}
-
-void heap_insert(MinHeap* heap, Move move) {
-    if (heap->size == HEAP_MAX_SIZE) return;
-    heap->moves[heap->size] = move;
-    heapify_up(heap, heap->size++);
-}
-
-Move heap_extract_min(MinHeap* heap) {
-    Move minMove = heap->moves[0];
-    heap->moves[0] = heap->moves[--heap->size];
-    heapify_down(heap, 0);
-    return minMove;
-}
-
-int heap_is_empty(MinHeap* heap) {
-    return heap->size == 0;
-}
 
 Coord coord_add(Coord a, Coord b) {
     return (Coord){a.i + b.i, a.j + b.j};
@@ -341,7 +275,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    printf("Starting knight's tour from (%d, %d) on a %dx%d board.\n", start.i, start.j, N, M);
+    printf("Starting knight's tour from (%d, %d) on a %dx%d board...\n", start.i, start.j, N, M);
 
     int* board = initialize_board();     // Need to free
     int* visited = initialize_visited(); // Need to free

@@ -27,8 +27,17 @@ if __name__ == "__main__":
         n, m = map(int, lines[0].split(","))
         positions = [tuple(map(int, line.split(","))) for line in lines[1:]]
 
-    start_pos = positions[0]
-    idx = start_pos[0] * m + start_pos[1]
-    image = draw_tour(positions, n, m)
-    image.save(f"knights_tour.pdf")
-    print(f"Image saved as knights_tour.pdf")
+    if len(positions) != n * m:
+        raise ValueError("The path length does not match the board size.")
+    visited = set(positions)
+    if len(visited) != n * m:
+        raise ValueError("The path does not visit every cell exactly once.")
+    for (x, y) in positions:
+        if not (0 <= x < n and 0 <= y < m):
+            raise ValueError(f"Position {(x, y)} is out of bounds.")
+
+    # start_pos = positions[0]
+    # idx = start_pos[0] * m + start_pos[1]
+    # image = draw_tour(positions, n, m)
+    # image.save(f"knights_tour.png")
+    # print(f"Image saved as knights_tour.png")
