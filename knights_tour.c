@@ -2,14 +2,41 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define N 10
+#define N 100
 #define M N
 #define HEAP_MAX_SIZE 8
+
+#define UPDATE_ADJACENT_DEGREES(pos, delta)                                                        \
+    do {                                                                                           \
+        const int base_i = (pos).i;                                                                \
+        const int base_j = (pos).j;                                                                \
+        if (base_i + 2 < N && base_j + 1 < M && !visited[(base_i + 2) * M + base_j + 1])           \
+            board[(base_i + 2) * M + base_j + 1] += (delta);                                       \
+        if (base_i + 2 < N && base_j - 1 >= 0 && !visited[(base_i + 2) * M + base_j - 1])          \
+            board[(base_i + 2) * M + base_j - 1] += (delta);                                       \
+        if (base_i - 2 >= 0 && base_j + 1 < M && !visited[(base_i - 2) * M + base_j + 1])          \
+            board[(base_i - 2) * M + base_j + 1] += (delta);                                       \
+        if (base_i - 2 >= 0 && base_j - 1 >= 0 && !visited[(base_i - 2) * M + base_j - 1])         \
+            board[(base_i - 2) * M + base_j - 1] += (delta);                                       \
+        if (base_i + 1 < N && base_j + 2 < M && !visited[(base_i + 1) * M + base_j + 2])           \
+            board[(base_i + 1) * M + base_j + 2] += (delta);                                       \
+        if (base_i + 1 < N && base_j - 2 >= 0 && !visited[(base_i + 1) * M + base_j - 2])          \
+            board[(base_i + 1) * M + base_j - 2] += (delta);                                       \
+        if (base_i - 1 >= 0 && base_j + 2 < M && !visited[(base_i - 1) * M + base_j + 2])          \
+            board[(base_i - 1) * M + base_j + 2] += (delta);                                       \
+        if (base_i - 1 >= 0 && base_j - 2 >= 0 && !visited[(base_i - 1) * M + base_j - 2])         \
+            board[(base_i - 1) * M + base_j - 2] += (delta);                                       \
+    } while (0)
 
 typedef struct {
     int i;
     int j;
 } Coord;
+
+typedef struct {
+    unsigned degree : 4;
+    unsigned visited : 1;
+} Square;
 
 typedef struct {
     Coord pos;
@@ -152,11 +179,17 @@ void path_pop(Path* path) {
 }
 
 Coord KNIGHT_MOVES[8] = {
-    {2, 1}, {2, -1}, {-2, 1}, {-2, -1},
-    {1, 2}, {1, -2}, {-1, 2}, {-1, -2}
+    { 2,  1},
+    { 2, -1},
+    {-2,  1},
+    {-2, -1},
+    { 1,  2},
+    { 1, -2},
+    {-1,  2},
+    {-1, -2}
 };
 
-int is_valid_position(Coord c) {
+inline int is_valid_position(Coord c) {
     return (c.i >= 0 && c.i < N && c.j >= 0 && c.j < M);
 }
 
@@ -172,7 +205,7 @@ int calculate_degree(Coord c) {
     return d;
 }
 
-int coord_flatten(Coord c) {
+inline int coord_flatten(Coord c) {
     return c.i * M + c.j;
 }
 
@@ -195,6 +228,18 @@ int* initialize_visited() {
     return visited;
 }
 
+Square* initialize_squares() {
+    Square* squares = (Square*)malloc(N * M * sizeof(Square));
+    Coord c;
+    for (c.i = 0; c.i < N; ++c.i) {
+        for (c.j = 0; c.j < M; ++c.j) {
+            squares[coord_flatten(c)].degree = calculate_degree(c);
+            squares[coord_flatten(c)].visited = 0;
+        }
+    }
+    return squares;
+}
+
 void write_tour_to_file(const char* filename, Path* path) {
     FILE* file = fopen(filename, "w");
     if (file == NULL) {
@@ -215,12 +260,7 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
     path_push(path, start);
     visited[coord_flatten(start)] = 1;
 
-    for (int k = 0; k < 8; ++k) {
-        Coord adj = coord_add(start, KNIGHT_MOVES[k]);
-        if (is_valid_position(adj) && !visited[coord_flatten(adj)]) {
-            --board[coord_flatten(adj)];
-        }
-    }
+    UPDATE_ADJACENT_DEGREES(start, -1);
 
     stack_push(&stack, start, -1);
 
@@ -233,13 +273,12 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
 
         for (int k = 0; k < 8; ++k) {
             const Coord next = coord_add(current, KNIGHT_MOVES[k]);
-            if (is_valid_position(next) && !visited[coord_flatten(next)]) {
-                const Move move = {
-                    .degree = board[coord_flatten(next)],
-                    .move_idx = k,
-                    .coord = next
-                };
-                heap_insert(&heap, move);
+            if (is_valid_position(next)) {
+                const int idx = coord_flatten(next);
+                if (!visited[idx]) {
+                    const Move move = {.degree = board[idx], .move_idx = k, .coord = next};
+                    heap_insert(&heap, move);
+                }
             }
         }
 
@@ -248,17 +287,13 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
         while (!heap_is_empty(&heap) && !found_move) {
             const Move move = heap_extract_min(&heap);
             const Coord next = move.coord;
+            const int next_idx = coord_flatten(next);
 
-            if (!visited[coord_flatten(next)]) {
+            if (!visited[next_idx]) {
                 path_push(path, next);
                 stack_push(&stack, next, move.move_idx);
-                visited[coord_flatten(next)] = 1;
-                for (int k = 0; k < 8; ++k) {
-                    Coord adj = coord_add(next, KNIGHT_MOVES[k]);
-                    if (is_valid_position(adj) && !visited[coord_flatten(adj)]) {
-                        --board[coord_flatten(adj)];
-                    }
-                }
+                visited[next_idx] = 1;
+                UPDATE_ADJACENT_DEGREES(next, -1);
                 found_move = 1;
             }
         }
@@ -267,12 +302,7 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
             if (path->length > 1) {
                 path_pop(path);
                 visited[coord_flatten(current)] = 0;
-                for (int k = 0; k < 8; ++k) {
-                    Coord adj = coord_add(current, KNIGHT_MOVES[k]);
-                    if (is_valid_position(adj) && !visited[coord_flatten(adj)]) {
-                        ++board[coord_flatten(adj)];
-                    }
-                }
+                UPDATE_ADJACENT_DEGREES(current, 1);
             }
             stack_pop(&stack);
         }
@@ -280,72 +310,6 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
 
     free_stack(&stack);
     return path->length == N * M;
-}
-
-void solve_recursive(int* board, int* visited, Path* path, Coord c) {
-    path_push(path, c);
-    visited[coord_flatten(c)] = 1;
-
-    if (path->length == N * M) {
-        return; // Tour complete
-    }
-
-    Coord next, adj;
-    MinHeap heap;
-    init_heap(&heap);
-
-    for (int k = 0; k < 8; ++k) {
-        next = coord_add(c, KNIGHT_MOVES[k]);
-        if (is_valid_position(next) && !visited[coord_flatten(next)]) {
-            Move move = {
-                .degree = board[coord_flatten(next)],
-                .move_idx = k,
-                .coord = next
-            };
-            heap_insert(&heap, move);
-        }
-    }
-
-    while (!heap_is_empty(&heap) && path->length < N * M) {
-        Move move = heap_extract_min(&heap);
-        next = move.coord;
-
-        for (int k = 0; k < 8; ++k) {
-            adj = coord_add(next, KNIGHT_MOVES[k]);
-            if (is_valid_position(adj) && !visited[coord_flatten(adj)]) {
-                --board[coord_flatten(adj)];
-            }
-        }
-
-        solve_recursive(board, visited, path, next);
-
-        if (path->length == N * M) {
-            break; // Tour complete
-        }
-
-        // Backtrack
-        for (int k = 0; k < 8; ++k) {
-            adj = coord_add(next, KNIGHT_MOVES[k]);
-            if (is_valid_position(adj) && !visited[coord_flatten(adj)]) {
-                ++board[coord_flatten(adj)];
-            }
-        }
-
-        path_pop(path);
-        visited[coord_flatten(next)] = 0;
-    }
-
-    // Final backtrack for my current position
-    if (path->length < N * M) {
-        path_pop(path);
-        visited[coord_flatten(c)] = 0;
-        for (int k = 0; k < 8; ++k) {
-            next = coord_add(c, KNIGHT_MOVES[k]);
-            if (is_valid_position(next) && !visited[coord_flatten(next)]) {
-                ++board[coord_flatten(next)];
-            }
-        }
-    }
 }
 
 int main(int argc, char* argv[]) {
@@ -361,7 +325,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    int* board = initialize_board(); // Need to free
+    printf("Starting knight's tour from (%d, %d) on a %dx%d board.\n", start.i, start.j, N, M);
+
+    int* board = initialize_board();     // Need to free
     int* visited = initialize_visited(); // Need to free
 
     Path path;
