@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define N 1000
+#define N 100
 #define M N
 
 typedef struct {
@@ -220,7 +220,7 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
         int found_move = 0;
         int move_iter = 0;
 
-        while (move_iter < 8 && !found_move) {
+        while (move_iter < move_count && !found_move) {
             const Move move = moves[move_iter++];
             const Coord next = move.coord;
             const int next_idx = coord_flatten(next);
