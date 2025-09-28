@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define N 100
+#define N 1000
 #define M N
 #define HEAP_MAX_SIZE 8
 
@@ -189,7 +189,7 @@ Coord KNIGHT_MOVES[8] = {
     {-1, -2}
 };
 
-inline int is_valid_position(Coord c) {
+int is_valid_position(Coord c) {
     return (c.i >= 0 && c.i < N && c.j >= 0 && c.j < M);
 }
 
@@ -205,7 +205,7 @@ int calculate_degree(Coord c) {
     return d;
 }
 
-inline int coord_flatten(Coord c) {
+int coord_flatten(Coord c) {
     return c.i * M + c.j;
 }
 
@@ -240,6 +240,18 @@ Square* initialize_squares() {
     return squares;
 }
 
+void sort_moves(Move* moves, int count) {
+    for (int i = 1; i < count; ++i) {
+        Move key = moves[i];
+        int j = i - 1;
+        while (j >= 0 && moves[j].degree > key.degree) {
+            moves[j + 1] = moves[j];
+            j--;
+        }
+        moves[j + 1] = key;
+    }
+}
+
 void write_tour_to_file(const char* filename, Path* path) {
     FILE* file = fopen(filename, "w");
     if (file == NULL) {
@@ -264,12 +276,13 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
 
     stack_push(&stack, start, -1);
 
+    Move moves[8];
+    int move_count = 0;
+
     while (!stack_is_empty(&stack) && path->length < N * M) {
         StackFrame* frame = stack_top(&stack);
         const Coord current = frame->pos;
-
-        MinHeap heap;
-        init_heap(&heap);
+        move_count = 0;
 
         for (int k = 0; k < 8; ++k) {
             const Coord next = coord_add(current, KNIGHT_MOVES[k]);
@@ -277,15 +290,18 @@ int solve_iterative(int* board, int* visited, Path* path, Coord start) {
                 const int idx = coord_flatten(next);
                 if (!visited[idx]) {
                     const Move move = {.degree = board[idx], .move_idx = k, .coord = next};
-                    heap_insert(&heap, move);
+                    moves[move_count++] = move;
                 }
             }
         }
 
-        int found_move = 0;
+        sort_moves(moves, move_count);
 
-        while (!heap_is_empty(&heap) && !found_move) {
-            const Move move = heap_extract_min(&heap);
+        int found_move = 0;
+        int move_iter = 0;
+
+        while (move_iter < 8 && !found_move) {
+            const Move move = moves[move_iter++];
             const Coord next = move.coord;
             const int next_idx = coord_flatten(next);
 
