@@ -192,7 +192,7 @@ void write_tour_to_file(const char* filename, Path* path) {
         fprintf(stderr, "Error: Could not open file for writing\n");
         return;
     }
-    fprintf(file, "%d,%d\n", N, N); // First line is the size of the board.
+    fprintf(file, "%d,%d\n", N, M); // First line is the size of the board.
     for (int i = 0; i < path->length; ++i) {
         fprintf(file, "%d,%d\n", path->coords[i].i, path->coords[i].j);
     }
